@@ -25,11 +25,12 @@ public class Movie {
     private int rating;             // 0 (unrated) to 5 stars
     private WatchStatus status;
     private String notes;
+    private String posterUrl;       // nullable; set when the movie was picked from live search
 
-    /** New-movie constructor: generates a fresh id and stamps the current time as addedOn. */
+    /** New-movie constructor: generates a fresh id and stamps the current time as addedOn. No poster. */
     public Movie(String title, Set<Genre> genres, int releaseYear, int rating,
                  WatchStatus status, String notes) {
-        this(UUID.randomUUID().toString(), Instant.now(), title, genres, releaseYear, rating, status, notes);
+        this(UUID.randomUUID().toString(), Instant.now(), title, genres, releaseYear, rating, status, notes, null);
     }
 
     /**
@@ -37,7 +38,7 @@ public class Movie {
      * existing movie and the caller wants to preserve its original id/addedOn.
      */
     public Movie(String id, Instant addedOn, String title, Set<Genre> genres, int releaseYear, int rating,
-                 WatchStatus status, String notes) {
+                 WatchStatus status, String notes, String posterUrl) {
         this.id = Objects.requireNonNull(id, "id must not be null");
         this.addedOn = addedOn == null ? Instant.now() : addedOn;
         setTitle(title);
@@ -46,6 +47,7 @@ public class Movie {
         setRating(rating);
         setStatus(status);
         setNotes(notes);
+        this.posterUrl = posterUrl;
     }
 
     public String getId() {
@@ -128,6 +130,15 @@ public class Movie {
 
     public void setNotes(String notes) {
         this.notes = notes == null ? "" : notes.trim();
+    }
+
+    /** URL of the movie's real poster image, or null if this entry has none (falls back to a painted poster). */
+    public String getPosterUrl() {
+        return posterUrl;
+    }
+
+    public void setPosterUrl(String posterUrl) {
+        this.posterUrl = (posterUrl == null || posterUrl.isBlank()) ? null : posterUrl;
     }
 
     @Override
