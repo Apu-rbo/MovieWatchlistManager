@@ -82,7 +82,7 @@ public class MainWindow extends JFrame {
                 return;
             }
             controller.addMovie(m.getTitle(), m.getGenres(), m.getReleaseYear(),
-                    m.getRating(), m.getStatus(), m.getNotes());
+                    m.getRating(), m.getStatus(), m.getNotes(), m.getPosterUrl());
         }
     }
 
@@ -92,7 +92,7 @@ public class MainWindow extends JFrame {
         if (dialog.isConfirmed()) {
             Movie m = dialog.getResult();
             controller.updateMovie(m.getId(), m.getTitle(), m.getGenres(), m.getReleaseYear(),
-                    m.getRating(), m.getStatus(), m.getNotes());
+                    m.getRating(), m.getStatus(), m.getNotes(), m.getPosterUrl());
         }
     }
 
