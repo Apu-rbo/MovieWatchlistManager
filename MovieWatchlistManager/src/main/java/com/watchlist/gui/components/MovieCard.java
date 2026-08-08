@@ -9,6 +9,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.RoundRectangle2D;
 import java.util.function.Consumer;
 
 /**
@@ -150,16 +151,29 @@ public class MovieCard extends JPanel {
         return false;
     }
 
-    /** The gradient "poster" area: genre-colored backdrop, initial glyph, status pill, star strip. */
+    /** The gradient "poster" area: genre-colored backdrop, initial glyph, status pill, star strip.
+     *  If the movie has a real posterUrl (from live search), that image is painted instead once
+     *  it finishes loading; until then, or if it has no poster / the load fails, the painted
+     *  gradient is shown so the layout never has an empty gap. */
     private static class PosterPanel extends JPanel {
         private final Movie movie;
         private final int height;
+        private Image posterImage;
 
         PosterPanel(Movie movie, int height) {
             this.movie = movie;
             this.height = height;
             setOpaque(false);
             setPreferredSize(new Dimension(10, height));
+
+            String posterUrl = movie.getPosterUrl();
+            if (posterUrl != null) {
+                Consumer<Image> onLoaded = image -> {
+                    posterImage = image;
+                    repaint();
+                };
+                this.posterImage = com.watchlist.gui.components.PosterImageCache.getOrLoad(posterUrl, onLoaded);
+            }
         }
 
         @Override
@@ -168,6 +182,41 @@ public class MovieCard extends JPanel {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+            if (posterImage != null) {
+                paintRealPoster(g2);
+            } else {
+                paintGradientPoster(g2);
+            }
+
+            g2.dispose();
+        }
+
+        /** Real poster, cropped/scaled to fill the tile and clipped to the same rounded-top shape. */
+        private void paintRealPoster(Graphics2D g2) {
+            Shape clip = new RoundRectangle2D.Float(0, 0, getWidth(), height, 12, 12);
+            g2.setClip(clip);
+
+            int iw = posterImage.getWidth(this);
+            int ih = posterImage.getHeight(this);
+            if (iw <= 0 || ih <= 0) {
+                paintGradientPoster(g2);
+                return;
+            }
+            // Cover-fit: scale so the image fills the tile, cropping whichever
+            // dimension overflows, rather than stretching or letterboxing.
+            double scale = Math.max((double) getWidth() / iw, (double) height / ih);
+            int drawW = (int) Math.ceil(iw * scale);
+            int drawH = (int) Math.ceil(ih * scale);
+            int drawX = (getWidth() - drawW) / 2;
+            int drawY = (height - drawH) / 2;
+            g2.drawImage(posterImage, drawX, drawY, drawW, drawH, this);
+
+            g2.setClip(null);
+            paintStatusPill(g2);
+            paintStars(g2);
+        }
+
+        private void paintGradientPoster(Graphics2D g2) {
             // Multiple genres are possible; the poster gradient just needs one
             // representative color, so we take the first from the (Enum-ordered) set.
             Color base = AppTheme.genreColor(movie.getGenres().iterator().next());
@@ -187,7 +236,11 @@ public class MovieCard extends JPanel {
             int textY = (height + fm.getAscent()) / 2 - 6;
             g2.drawString(initial, textX, textY);
 
-            // Status pill, top-right.
+            paintStatusPill(g2);
+            paintStars(g2);
+        }
+
+        private void paintStatusPill(Graphics2D g2) {
             WatchStatus status = movie.getStatus();
             String statusText = status.getDisplayName();
             g2.setFont(AppTheme.FONT_SMALL.deriveFont(Font.BOLD));
@@ -200,8 +253,9 @@ public class MovieCard extends JPanel {
             g2.fillRoundRect(pillX, pillY, pillWidth, pillHeight, pillHeight, pillHeight);
             g2.setColor(Color.WHITE);
             g2.drawString(statusText, pillX + 8, pillY + pillHeight - 5);
+        }
 
-            // Star strip, bottom-left, over a soft dark backdrop for legibility.
+        private void paintStars(Graphics2D g2) {
             int rating = movie.getRating();
             String stars = "\u2605".repeat(rating) + "\u2606".repeat(5 - rating);
             g2.setFont(AppTheme.FONT_SMALL.deriveFont(12f));
@@ -211,8 +265,6 @@ public class MovieCard extends JPanel {
             g2.fillRoundRect(4, starsY - starFm.getAscent() - 2, starFm.stringWidth(stars) + 10, starFm.getAscent() + 8, 8, 8);
             g2.setColor(AppTheme.ACCENT_GOLD);
             g2.drawString(stars, 9, starsY);
-
-            g2.dispose();
         }
     }
 }
