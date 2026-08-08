@@ -22,21 +22,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * Transactional modal form for add/edit operations. "Transactional" here
- * means: nothing about the underlying Movie is touched unless the user
- * confirms with OK, and even then the caller (MainWindow) is the one that
- * actually pushes the result into the controller. Cancel, or closing the
- * dialog, discards everything typed with no side effects.
- *
- * The title field doubles as a live search box against OMDb (requires the
- * OMDB_API_KEY environment variable - see OmdbClient). Typing debounces for
- * ~400ms, then queries in the background; picking a suggestion auto-fills
- * year, genre (best-effort mapped onto this app's Genre enum), and a real
- * poster URL. If no API key is configured, or a lookup fails, the dialog
- * just behaves like a plain manual-entry form - live search is a bonus,
- * never a requirement.
- */
+
 public class MovieDialog extends JDialog {
 
     private final JTextField titleField = new JTextField(24);
