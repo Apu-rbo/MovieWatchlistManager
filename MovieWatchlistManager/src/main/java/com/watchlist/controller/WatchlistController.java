@@ -7,11 +7,13 @@ import com.watchlist.model.WatchStatus;
 import com.watchlist.repository.StorageInterface;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -60,24 +62,40 @@ public class WatchlistController {
 
     // ---------- CRUD operations ----------
 
-    public Movie addMovie(String title, Genre genre, int releaseYear, int rating,
+    public Movie addMovie(String title, Set<Genre> genres, int releaseYear, int rating,
                            WatchStatus status, String notes) {
-        Movie movie = new Movie(title, genre, releaseYear, rating, status, notes);
+        Movie movie = new Movie(title, genres, releaseYear, rating, status, notes);
         watchlist.add(movie);
         persist();
         notifyChanged();
         return movie;
     }
 
-    public boolean updateMovie(String id, String title, Genre genre, int releaseYear,
+    public boolean updateMovie(String id, String title, Set<Genre> genres, int releaseYear,
                                 int rating, WatchStatus status, String notes) {
-        Movie updated = new Movie(id, title, genre, releaseYear, rating, status, notes);
+        // Preserve the original addedOn timestamp across an edit rather than
+        // resetting it, so "Recently Added" reflects true creation order.
+        Instant addedOn = watchlist.findById(id).map(Movie::getAddedOn).orElseGet(Instant::now);
+        Movie updated = new Movie(id, addedOn, title, genres, releaseYear, rating, status, notes);
         boolean success = watchlist.update(updated);
         if (success) {
             persist();
             notifyChanged();
         }
         return success;
+    }
+
+    /**
+     * True if a movie with the same title (case-insensitive) and release year already
+     * exists. Pass excludeId (the movie's own id) when checking during an edit, so a
+     * movie doesn't flag itself as a duplicate of itself.
+     */
+    public boolean isDuplicate(String title, int releaseYear, String excludeId) {
+        if (title == null) return false;
+        String normalized = title.trim().toLowerCase();
+        return watchlist.getAll().stream()
+                .filter(m -> excludeId == null || !m.getId().equals(excludeId))
+                .anyMatch(m -> m.getTitle().toLowerCase().equals(normalized) && m.getReleaseYear() == releaseYear);
     }
 
     public boolean deleteMovie(String id) {
@@ -110,7 +128,7 @@ public class WatchlistController {
             return getAllMovies();
         }
         return watchlist.getAll().stream()
-                .filter(m -> m.getGenre() == genre)
+                .filter(m -> m.getGenres().contains(genre))
                 .toList();
     }
 
@@ -148,20 +166,21 @@ public class WatchlistController {
                 .average()
                 .orElse(0.0);
 
+        // A movie with several genres counts once toward each of them, so these
+        // counts can sum to more than the total movie count - that's expected.
         Map<Genre, Long> countsByGenre = all.stream()
-                .collect(Collectors.groupingBy(Movie::getGenre, () -> new EnumMap<>(Genre.class), Collectors.counting()));
+                .flatMap(m -> m.getGenres().stream())
+                .collect(Collectors.groupingBy(g -> g, () -> new EnumMap<>(Genre.class), Collectors.counting()));
 
         return new WatchlistStats(all.size(), watching, watched, planToWatch, dropped, averageRating, countsByGenre);
     }
 
-    /**
-     * Returns up to {@code limit} movies, most-recently-added first. "Recently added"
-     * is approximated by insertion order, since Movie carries no added-on timestamp.
-     */
+    /** Returns up to {@code limit} movies, most-recently-added first, by actual addedOn timestamp. */
     public List<Movie> getRecentlyAdded(int limit) {
-        List<Movie> all = new ArrayList<>(watchlist.getAll());
-        Collections.reverse(all);
-        return all.size() <= limit ? all : all.subList(0, limit);
+        return watchlist.getAll().stream()
+                .sorted(Comparator.comparing(Movie::getAddedOn).reversed())
+                .limit(limit)
+                .toList();
     }
 
     // ---------- Persistence ----------
