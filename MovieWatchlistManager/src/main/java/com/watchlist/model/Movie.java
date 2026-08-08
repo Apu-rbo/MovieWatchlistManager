@@ -1,8 +1,13 @@
 package com.watchlist.model;
 
+import java.time.Instant;
 import java.time.Year;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Encapsulated, validation-guarded data object representing a single
@@ -12,28 +17,31 @@ import java.util.UUID;
  */
 public class Movie {
 
-    private final String id;      // stable identity, independent of title edits
+    private final String id;        // stable identity, independent of title edits
+    private final Instant addedOn;  // when this entry was first created; never changes on edit
     private String title;
-    private Genre genre;
+    private Set<Genre> genres;      // always non-empty; a movie can belong to more than one genre
     private int releaseYear;
-    private int rating;           // 0 (unrated) to 5 stars
+    private int rating;             // 0 (unrated) to 5 stars
     private WatchStatus status;
     private String notes;
 
-    public Movie(String title, Genre genre, int releaseYear, int rating,
+    /** New-movie constructor: generates a fresh id and stamps the current time as addedOn. */
+    public Movie(String title, Set<Genre> genres, int releaseYear, int rating,
                  WatchStatus status, String notes) {
-        this(UUID.randomUUID().toString(), title, genre, releaseYear, rating, status, notes);
+        this(UUID.randomUUID().toString(), Instant.now(), title, genres, releaseYear, rating, status, notes);
     }
 
     /**
-     * Full constructor used when reconstructing a Movie from storage,
-     * where the id must be preserved rather than regenerated.
+     * Full constructor used when reconstructing a Movie from storage, or when editing an
+     * existing movie and the caller wants to preserve its original id/addedOn.
      */
-    public Movie(String id, String title, Genre genre, int releaseYear, int rating,
+    public Movie(String id, Instant addedOn, String title, Set<Genre> genres, int releaseYear, int rating,
                  WatchStatus status, String notes) {
         this.id = Objects.requireNonNull(id, "id must not be null");
+        this.addedOn = addedOn == null ? Instant.now() : addedOn;
         setTitle(title);
-        setGenre(genre);
+        setGenres(genres);
         setReleaseYear(releaseYear);
         setRating(rating);
         setStatus(status);
@@ -42,6 +50,11 @@ public class Movie {
 
     public String getId() {
         return id;
+    }
+
+    /** When this entry was first added. Used for a real (not insertion-order-approximated) "Recently Added". */
+    public Instant getAddedOn() {
+        return addedOn;
     }
 
     public String getTitle() {
@@ -55,12 +68,24 @@ public class Movie {
         this.title = title.trim();
     }
 
-    public Genre getGenre() {
-        return genre;
+    /** Unmodifiable view. A movie always carries at least one genre. */
+    public Set<Genre> getGenres() {
+        return Collections.unmodifiableSet(genres);
     }
 
-    public void setGenre(Genre genre) {
-        this.genre = Objects.requireNonNull(genre, "Genre must be selected");
+    public void setGenres(Set<Genre> genres) {
+        if (genres == null || genres.isEmpty()) {
+            throw new IllegalArgumentException("Select at least one genre");
+        }
+        this.genres = EnumSet.copyOf(genres);
+    }
+
+    /** Comma-separated display label, e.g. "Action, Sci-Fi" — for GUI use instead of a raw Set. */
+    public String getGenreLabel() {
+        return genres.stream()
+                .map(Genre::getDisplayName)
+                .sorted()
+                .collect(Collectors.joining(", "));
     }
 
     public int getReleaseYear() {
