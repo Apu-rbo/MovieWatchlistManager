@@ -63,8 +63,9 @@ public class WatchlistController {
     // ---------- CRUD operations ----------
 
     public Movie addMovie(String title, Set<Genre> genres, int releaseYear, int rating,
-                           WatchStatus status, String notes) {
-        Movie movie = new Movie(title, genres, releaseYear, rating, status, notes);
+                           WatchStatus status, String notes, String posterUrl) {
+        Movie movie = new Movie(java.util.UUID.randomUUID().toString(), Instant.now(),
+                title, genres, releaseYear, rating, status, notes, posterUrl);
         watchlist.add(movie);
         persist();
         notifyChanged();
@@ -72,11 +73,14 @@ public class WatchlistController {
     }
 
     public boolean updateMovie(String id, String title, Set<Genre> genres, int releaseYear,
-                                int rating, WatchStatus status, String notes) {
+                                int rating, WatchStatus status, String notes, String posterUrl) {
         // Preserve the original addedOn timestamp across an edit rather than
         // resetting it, so "Recently Added" reflects true creation order.
-        Instant addedOn = watchlist.findById(id).map(Movie::getAddedOn).orElseGet(Instant::now);
-        Movie updated = new Movie(id, addedOn, title, genres, releaseYear, rating, status, notes);
+        // If the edit didn't come with a new poster, keep whatever poster was there before.
+        Movie existing = watchlist.findById(id).orElse(null);
+        Instant addedOn = existing != null ? existing.getAddedOn() : Instant.now();
+        String resolvedPoster = posterUrl != null ? posterUrl : (existing != null ? existing.getPosterUrl() : null);
+        Movie updated = new Movie(id, addedOn, title, genres, releaseYear, rating, status, notes, resolvedPoster);
         boolean success = watchlist.update(updated);
         if (success) {
             persist();
