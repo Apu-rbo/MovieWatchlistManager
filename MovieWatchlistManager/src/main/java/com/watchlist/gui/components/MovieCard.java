@@ -75,7 +75,11 @@ public class MovieCard extends JPanel {
         title.setForeground(AppTheme.TEXT_PRIMARY);
         title.setAlignmentX(LEFT_ALIGNMENT);
 
-        JLabel subtitle = new JLabel(movie.getGenre().getDisplayName() + "  \u2022  " + movie.getReleaseYear());
+        String genreText = movie.getGenreLabel();
+        if (genreText.length() > 24) {
+            genreText = genreText.substring(0, 23) + "\u2026";
+        }
+        JLabel subtitle = new JLabel(genreText + "  \u2022  " + movie.getReleaseYear());
         subtitle.setFont(AppTheme.FONT_SMALL);
         subtitle.setForeground(AppTheme.TEXT_SECONDARY);
         subtitle.setAlignmentX(LEFT_ALIGNMENT);
@@ -164,7 +168,9 @@ public class MovieCard extends JPanel {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            Color base = AppTheme.genreColor(movie.getGenre());
+            // Multiple genres are possible; the poster gradient just needs one
+            // representative color, so we take the first from the (Enum-ordered) set.
+            Color base = AppTheme.genreColor(movie.getGenres().iterator().next());
             Color dark = base.darker().darker();
             GradientPaint gradient = new GradientPaint(0, 0, base, 0, height, dark);
             g2.setPaint(gradient);
