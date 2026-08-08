@@ -139,7 +139,7 @@ public class LibraryPanel extends JPanel {
         if (genreChoice != null && !genreChoice.equals(ALL_GENRES)) {
             for (Genre g : Genre.values()) {
                 if (g.getDisplayName().equals(genreChoice)) {
-                    movies = movies.stream().filter(m -> m.getGenre() == g).toList();
+                    movies = movies.stream().filter(m -> m.getGenres().contains(g)).toList();
                     break;
                 }
             }
