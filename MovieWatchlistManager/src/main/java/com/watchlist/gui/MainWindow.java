@@ -78,7 +78,10 @@ public class MainWindow extends JFrame {
         dialog.setVisible(true);
         if (dialog.isConfirmed()) {
             Movie m = dialog.getResult();
-            controller.addMovie(m.getTitle(), m.getGenre(), m.getReleaseYear(),
+            if (controller.isDuplicate(m.getTitle(), m.getReleaseYear(), null) && !confirmAddDuplicate(m)) {
+                return;
+            }
+            controller.addMovie(m.getTitle(), m.getGenres(), m.getReleaseYear(),
                     m.getRating(), m.getStatus(), m.getNotes());
         }
     }
@@ -88,9 +91,17 @@ public class MainWindow extends JFrame {
         dialog.setVisible(true);
         if (dialog.isConfirmed()) {
             Movie m = dialog.getResult();
-            controller.updateMovie(m.getId(), m.getTitle(), m.getGenre(), m.getReleaseYear(),
+            controller.updateMovie(m.getId(), m.getTitle(), m.getGenres(), m.getReleaseYear(),
                     m.getRating(), m.getStatus(), m.getNotes());
         }
+    }
+
+    /** Warns (rather than blocks) when a same-title/year movie already exists. Returns true to proceed anyway. */
+    private boolean confirmAddDuplicate(Movie m) {
+        int choice = JOptionPane.showConfirmDialog(this,
+                "\"" + m.getTitle() + "\" (" + m.getReleaseYear() + ") is already in your watchlist.\nAdd it anyway?",
+                "Possible duplicate", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        return choice == JOptionPane.YES_OPTION;
     }
 
     private void confirmDelete(Movie existing) {
